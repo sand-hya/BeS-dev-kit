@@ -59,26 +59,20 @@ class Report():
             data = json.load(codeql_f)
             codeql_f.close()
         elif self.report == 'sbom':
-            self.flag = self.command_resp(os.system(url))
-            if self.flag:
-                try:
-                    sbom_raw_data = open('/tmp/.sbom/sbom-output/_manifest/spdx_2.2/manifest.spdx.json', 'r', encoding="utf-8")
-                    data = json.load(sbom_raw_data)
-                    pack_len = len(data['packages'])
-                    if pack_len == 1 and data['packages'][0]['name'] == self.name:
-                        print('[bold red]There were no packages detected '
-                            'during sbom report generation workflow')
-                        self.flag = False
-                    sbom_raw_data.close()
-                except ValueError:
-                    # includes simplejson.decoder.JSONDecodeError
-                    print('[bold red]Decoding JSON has failed')
-                    self.flag = False
-                except FileNotFoundError:
-                    print("[bold red]JSON file Not Found")
-                    self.flag = False
-            else:
-                return
+            str artifact_id = typer.Option(None, prompt="Enter artifact_id")
+            token = os.environ['GITHUB_AUTH_TOKEN']
+            cmd = 'curl -s -L -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ' + \
+                token+'" -H "X-GitHub-Api-Version: 2022-11-28" '+ \
+                '-O'+url
+            os.system(cmd+' >> /tmp/' + self.name +
+                       '-' + self.version + '-' +
+                       self.report+'.json')
+            codeql_f = open('/tmp/' + self.name +
+                       '-' + self.version + '-' +
+                       self.report+'.json', 'r', encoding="utf-8")
+            data = json.load(codeql_f)
+            codeql_f.close()
         else:
             try:
                 raw_data = urlopen(url)
@@ -160,6 +154,7 @@ class Report():
         elif return_val == 1:
             return False and self.flag
     
+    """
     def setup_sbom(self):
         '''
             download & setup sbom tool
@@ -176,7 +171,7 @@ class Report():
         self.flag = self.command_resp(os.system('cd /tmp/.sbom && git clone --single-branch --branch ' + self.version + '_release https://github.com/Be-Secure/'+ self.name +'.git'))
         #sbom report command
         command = 'cd /tmp/.sbom && ./sbom-tool-linux-x64 generate -b /tmp/.sbom/sbom-output -bc /tmp/.sbom/'+ self.name +' -pn '+ self.name +' -pv '+ self.version +' -ps Be-Secure'
-        return command
+        return command """
 
     def main(self):
         """
@@ -205,7 +200,9 @@ class Report():
                 self.name + '/code-scanning/alerts?tool_name=CodeQL'
         
         elif self.report == "sbom" and self.flag:
-            url = self.setup_sbom()
+            url = 'https://api.github.com/repos/Be-Secure/' + \
+                self.name + '/actions/artifacts/' + \
+                artifact_id + '/ZIP'
 
         if self.flag:
             data = self.fetch_report(url)
